@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>圖片投票網頁 - 自由切換結果與投票</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Noto Sans TC', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .glass-card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+        }
+        .crown-glow {
+            box-shadow: 0 0 25px rgba(245, 158, 11, 0.35);
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col justify-between selection:bg-sky-500 selection:text-white">
+
+    <header class="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col md:flex-row justify-between items-center gap-3">
+            <!-- Logo & Title -->
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 via-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-md shadow-sky-500/20">
+                    <i class="fa-solid fa-chart-pie text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-extrabold bg-gradient-to-r from-slate-900 via-sky-800 to-indigo-900 bg-clip-text text-transparent">
+                        圖片多選投票與統計系統
+                    </h1>
+                    <p class="text-xs text-slate-500">即時投票統計 · 可視化圖表分析 · 批量圖片上傳</p>
+                </div>
+            </div>
+
+            <!-- Permanent View Mode Tabs Switcher -->
+            <div class="flex items-center gap-2">
+                <div class="bg-slate-100 p-1 rounded-2xl flex items-center border border-slate-200/80 shadow-inner">
+                    <button id="navVoteTab" class="px-4 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 bg-white text-sky-600 shadow-sm">
+                        <i class="fa-solid fa-check-double"></i>
+                        <span>參與投票</span>
+                    </button>
+                    <button id="navResultsTab" class="px-4 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 text-slate-600 hover:text-slate-900">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <span>統計儀表板</span>
+                    </button>
+                </div>
+
+                <!-- Admin Actions -->
+                <button id="openAddModalBtn" class="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs sm:text-sm font-semibold rounded-xl transition shadow-sm flex items-center gap-1.5">
+                    <i class="fa-solid fa-layer-group"></i>
+                    <span class="hidden sm:inline">批量新增</span>
+                </button>
+                <button id="openConfigModalBtn" class="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition border border-slate-200" title="投票限制規則">
+                    <i class="fa-solid fa-sliders"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
+
+        <!-- VIEW 1: VOTING PAGE -->
+        <div id="voteViewPage" class="space-y-6">
+            <!-- Informational Banner -->
+            <section class="p-4 sm:p-5 bg-gradient-to-r from-sky-500/10 via-indigo-500/5 to-purple-500/10 border border-sky-100 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-sm">
+                <div class="flex items-start gap-3.5">
+                    <div class="p-2.5 bg-sky-500/10 text-sky-600 rounded-xl mt-0.5 sm:mt-0 flex-shrink-0">
+                        <i class="fa-solid fa-circle-info text-xl"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-sm sm:text-base font-semibold text-slate-800">投票說明與限制規則</h2>
+                        <p class="text-xs sm:text-sm text-slate-600 mt-0.5">
+                            點擊圖片即可勾選/取消。當前限制：<span id="ruleNoticeText" class="font-bold text-sky-700">無限制選取數量</span>
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 self-end md:self-center">
+                    <span class="text-xs font-semibold px-3 py-1.5 bg-white/80 rounded-full border border-slate-200 text-slate-600 flex items-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-images text-sky-500"></i>
+                        共 <span id="totalItemsCount" class="text-sky-600 font-bold">0</span> 個選項
+                    </span>
+                    <button id="clearAllItemsBtn" class="text-xs font-medium text-rose-500 hover:text-rose-700 hover:bg-rose-50 px-2.5 py-1.5 rounded-lg transition" title="清空全部投票選項">
+                        <i class="fa-regular fa-trash-can mr-1"></i>清空全部
+                    </button>
+                </div>
+            </section>
+
+            <!-- Image Voting Cards Grid -->
+            <section>
+                <div id="imageGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    <!-- Cards injected via JavaScript -->
+                </div>
+                
+                <!-- Empty State -->
+                <div id="emptyState" class="hidden flex-col items-center justify-center py-16 px-4 bg-white rounded-3xl border-2 border-dashed border-slate-200 text-center">
+                    <div class="w-16 h-16 rounded-2xl bg-sky-50 text-sky-500 flex items-center justify-center mb-4 text-3xl">
+                        <i class="fa-regular fa-images"></i>
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-800 mb-1">目前沒有任何投票項目</h3>
+                    <p class="text-sm text-slate-500 mb-5 max-w-sm">您可以批量拖曳上傳圖片、貼上圖片網址，或載入系統預設示範圖片體驗。</p>
+                    <div class="flex flex-wrap items-center justify-center gap-3">
+                        <button onclick="document.getElementById('openAddModalBtn').click()" class="px-4 py-2.5 bg-sky-600 text-white font-semibold text-xs sm:text-sm rounded-xl hover:bg-sky-700 transition shadow-md shadow-sky-600/20">
+                            <i class="fa-solid fa-file-circle-plus mr-1.5"></i>批量新增圖片
+                        </button>
+                        <button id="restoreDefaultBtn" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs sm:text-sm rounded-xl transition">
+                            載入預設範例圖
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- VIEW 2: STATISTICAL DASHBOARD PAGE -->
+        <div id="resultsViewPage" class="hidden space-y-8 animate-fadeIn">
+            <!-- Winner Highlight Card Showcase -->
+            <section id="winnerSection" class="hidden">
+                <div class="relative overflow-hidden bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 rounded-3xl p-6 sm:p-8 text-white shadow-xl crown-glow">
+                    <div class="absolute -right-6 -bottom-6 opacity-10 text-9xl font-black">
+                        <i class="fa-solid fa-crown"></i>
+                    </div>
+                    <div class="relative z-10 flex flex-col md:flex-row items-center gap-6">
+                        <div class="relative flex-shrink-0">
+                            <img id="winnerImage" src="" class="w-32 h-32 sm:w-40 sm:h-40 object-cover rounded-2xl border-4 border-white/80 shadow-lg">
+                            <div class="absolute -top-3 -left-3 bg-amber-300 text-amber-950 font-black px-3 py-1 rounded-full text-xs shadow flex items-center gap-1">
+                                <i class="fa-solid fa-crown text-amber-600"></i> 最高票得主
+                            </div>
+                        </div>
+                        <div class="text-center md:text-left space-y-2 flex-grow">
+                            <span class="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-semibold text-amber-100 border border-white/20">
+                                目前最高得票
+                            </span>
+                            <h3 id="winnerTitle" class="text-2xl sm:text-3xl font-extrabold tracking-tight">--</h3>
+                            <p class="text-amber-100 text-sm">
+                                獲得 <span id="winnerVotes" class="font-bold text-white text-lg">0</span> 票，佔總投出票數的 <span id="winnerPercentage" class="font-bold text-white text-lg">0%</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Top 5 Ranked Results Showcase -->
+            <div class="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-sm space-y-6">
+                <div class="flex justify-between items-center pb-4 border-b border-slate-100">
+                    <div>
+                        <h3 class="font-extrabold text-slate-800 text-lg sm:text-xl flex items-center gap-2">
+                            <i class="fa-solid fa-trophy text-amber-500"></i> 得票最高 Top 5 排行榜
+                        </h3>
+                        <p class="text-xs text-slate-500 mt-0.5">即時統計目前獲票最多的前五名圖片項目</p>
+                    </div>
+                    <button id="resetVotesDashboardBtn" class="text-xs font-semibold text-rose-500 hover:text-rose-700 hover:bg-rose-50 px-3 py-1.5 rounded-xl transition flex items-center gap-1 border border-rose-100">
+                        <i class="fa-solid fa-rotate-left"></i> 重置票數
+                    </button>
+                </div>
+
+                <div id="dashboardResultsList" class="space-y-4">
+                    <!-- Injected via JS -->
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Bottom Floating Selection Action Bar -->
+    <div id="bottomBar" class="sticky bottom-4 z-20 max-w-2xl mx-auto px-4 w-full transition-all duration-300">
+        <div class="glass-card rounded-2xl p-3.5 shadow-xl border border-white/80 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-sky-500 text-white flex items-center justify-center font-bold text-lg shadow-md shadow-sky-500/30">
+                    <span id="selectedCount">0</span>
+                </div>
+                <div>
+                    <span class="text-xs sm:text-sm font-semibold text-slate-800 block">已選擇項目</span>
+                    <span id="selectionHint" class="text-[11px] text-slate-500">可直接送出投票</span>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <!-- Optional Result View Trigger Button -->
+                <button id="viewResultsBtn" class="px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-xs sm:text-sm rounded-xl transition border border-indigo-200 flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>查看投票結果</span>
+                </button>
+
+                <button id="clearSelectionBtn" class="px-3 py-2 text-xs font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition">
+                    清除勾選
+                </button>
+                <button id="submitVoteBtn" disabled class="px-5 py-2.5 bg-slate-200 text-slate-400 cursor-not-allowed font-semibold text-xs sm:text-sm rounded-xl transition duration-200 flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    <span>送出投票</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Batch Add Modal -->
+    <div id="addModal" class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity">
+        <div class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-100 transform transition-all max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center pb-4 border-b border-slate-100 mb-4">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-layer-group text-sky-500"></i>
+                        批量新增投票項目
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-0.5">一次上傳多張圖片檔，或批量貼上圖片網址</p>
+                </div>
+                <button id="closeAddModalBtn" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4 overflow-y-auto flex-grow pr-1">
+                <!-- Tab Switching -->
+                <div class="flex border-b border-slate-200">
+                    <button id="tabBatchFile" class="pb-2.5 px-4 text-xs sm:text-sm font-bold border-b-2 border-sky-500 text-sky-600 transition">
+                        <i class="fa-solid fa-images mr-1.5"></i>批量檔案上傳
+                    </button>
+                    <button id="tabBatchUrl" class="pb-2.5 px-4 text-xs sm:text-sm font-medium text-slate-500 hover:text-slate-700 transition">
+                        <i class="fa-solid fa-link mr-1.5"></i>批量 URL 網址
+                    </button>
+                </div>
+
+                <!-- Panel 1: Multi-file Dropzone -->
+                <div id="panelBatchFile" class="space-y-3">
+                    <div id="dropZone" class="border-2 border-dashed border-sky-200 bg-sky-50/50 hover:bg-sky-50 hover:border-sky-400 rounded-2xl p-6 text-center transition cursor-pointer">
+                        <div class="w-12 h-12 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center mx-auto mb-2 text-xl">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                        </div>
+                        <p class="text-xs sm:text-sm text-slate-700 font-bold">點擊選擇，或將多張圖片拖曳至此處</p>
+                        <p class="text-[11px] text-slate-400 mt-1">支援 JPG, PNG, WEBP, GIF 等格式（可多選）</p>
+                        <input type="file" id="inputFileMultiple" accept="image/*" multiple class="hidden">
+                    </div>
+
+                    <div id="batchPreviewArea" class="hidden space-y-2">
+                        <div class="flex justify-between items-center text-xs text-slate-500 font-medium px-1">
+                            <span>待新增圖片列表 (<span id="stagedCount">0</span>)</span>
+                            <button id="clearStagedBtn" class="text-rose-500 hover:underline">清空選擇</button>
+                        </div>
+                        <div id="stagedGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-48 overflow-y-auto p-1 bg-slate-50 rounded-xl border border-slate-100"></div>
+                    </div>
+                </div>
+
+                <!-- Panel 2: Multi URL Textarea -->
+                <div id="panelBatchUrl" class="hidden space-y-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">貼上圖片網址（每行一個網址，或用逗號分隔）</label>
+                        <textarea id="inputUrls" rows="6" placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.jpg" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-sky-500 resize-none"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-4 border-t border-slate-100 flex justify-end gap-2.5 mt-2">
+                <button id="cancelAddBtn" class="px-4 py-2 text-xs sm:text-sm font-medium text-slate-500 hover:bg-slate-100 rounded-xl transition">取消</button>
+                <button id="confirmBatchAddBtn" class="px-5 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs sm:text-sm font-semibold rounded-xl transition shadow-md shadow-sky-600/20 flex items-center gap-1.5">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>匯入選項</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Voting Rules Configuration Modal -->
+    <div id="configModal" class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
+            <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
+                <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-sky-500"></i>
+                    投票限制設定
+                </h3>
+                <button id="closeConfigModalBtn" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">最少選取數量 (0 表示不限制)</label>
+                    <input type="number" id="minSelectInput" min="0" value="0" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">最多選取數量 (0 表示不限制)</label>
+                    <input type="number" id="maxSelectInput" min="0" value="0" class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                </div>
+            </div>
+
+            <div class="mt-6 pt-3 border-t border-slate-100 flex justify-end gap-2">
+                <button id="saveConfigBtn" class="px-5 py-2 bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs sm:text-sm rounded-xl transition shadow-md shadow-sky-600/20">
+                    儲存設定
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification with Action Button -->
+    <div id="toast" class="fixed top-20 right-4 z-50 transform translate-x-full transition-transform duration-300 flex items-center gap-3 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700/50">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+        <span id="toastMessage" class="text-xs sm:text-sm font-medium">訊息內容</span>
+        <button id="toastActionBtn" class="hidden ml-2 px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition shadow">
+            查看結果 →
+        </button>
+    </div>
+
+    <script>
+        // Initial Mock Items Data
+        const defaultItems = [
+            { id: '1', title: '日落金黃山峰', url: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80', votes: 14 },
+            { id: '2', title: '蔚藍海岸與海浪', url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80', votes: 22 },
+            { id: '3', title: '幽靜森林步道', url: 'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=800&q=80', votes: 8 },
+            { id: '4', title: '璀璨都市夜景', url: 'https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=800&q=80', votes: 19 }
+        ];
+
+        // Core State
+        let items = [...defaultItems];
+        let selectedIds = new Set();
+        let userVotedIds = new Set(JSON.parse(localStorage.getItem('my_user_voted_ids') || '[]'));
+        let totalVotersCount = parseInt(localStorage.getItem('my_total_voters') || '18');
+        let currentView = 'vote'; // 'vote' or 'results'
+
+        // Rules State
+        let minSelectLimit = 0;
+        let maxSelectLimit = 0;
+        let stagedFiles = [];
+        let currentBatchTab = 'file';
+
+        // DOM Elements
+        const imageGrid = document.getElementById('imageGrid');
+        const emptyState = document.getElementById('emptyState');
+        const selectedCountEl = document.getElementById('selectedCount');
+        const submitVoteBtn = document.getElementById('submitVoteBtn');
+        const viewResultsBtn = document.getElementById('viewResultsBtn');
+        const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+        const totalItemsCountEl = document.getElementById('totalItemsCount');
+        const ruleNoticeText = document.getElementById('ruleNoticeText');
+        const selectionHint = document.getElementById('selectionHint');
+
+        // Dashboard Elements
+        const winnerSection = document.getElementById('winnerSection');
+        const winnerImage = document.getElementById('winnerImage');
+        const winnerTitle = document.getElementById('winnerTitle');
+        const winnerVotes = document.getElementById('winnerVotes');
+        const winnerPercentage = document.getElementById('winnerPercentage');
+        const dashboardResultsList = document.getElementById('dashboardResultsList');
+
+        // Modal Controls & Inputs
+        const addModal = document.getElementById('addModal');
+        const configModal = document.getElementById('configModal');
+        const openAddModalBtn = document.getElementById('openAddModalBtn');
+        const closeAddModalBtn = document.getElementById('closeAddModalBtn');
+        const cancelAddBtn = document.getElementById('cancelAddBtn');
+        const confirmBatchAddBtn = document.getElementById('confirmBatchAddBtn');
+        const openConfigModalBtn = document.getElementById('openConfigModalBtn');
+        const closeConfigModalBtn = document.getElementById('closeConfigModalBtn');
+        const saveConfigBtn = document.getElementById('saveConfigBtn');
+
+        // Toast Helper with optional Action Button
+        function showToast(msg, type = 'success', showActionButton = false) {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            const icon = document.getElementById('toastIcon');
+            const actionBtn = document.getElementById('toastActionBtn');
+
+            toastMessage.textContent = msg;
+            if (type === 'success') {
+                icon.className = 'fa-solid fa-circle-check text-emerald-400 text-lg';
+            } else if (type === 'error') {
+                icon.className = 'fa-solid fa-circle-exclamation text-rose-400 text-lg';
+            } else {
+                icon.className = 'fa-solid fa-circle-info text-sky-400 text-lg';
+            }
+
+            if (showActionButton) {
+                actionBtn.classList.remove('hidden');
+                actionBtn.onclick = () => {
+                    switchView('results');
+                    toast.classList.add('translate-x-full');
+                };
+            } else {
+                actionBtn.classList.add('hidden');
+            }
+
+            toast.classList.remove('translate-x-full');
+            setTimeout(() => toast.classList.add('translate-x-full'), showActionButton ? 5000 : 3000);
+        }
+
+        // View Switching Logic
+        function switchView(view) {
+            currentView = view;
+            if (view === 'vote') {
+                voteViewPage.classList.remove('hidden');
+                resultsViewPage.classList.add('hidden');
+                bottomBar.classList.remove('hidden');
+
+                navVoteTab.className = "px-4 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 bg-white text-sky-600 shadow-sm";
+                navResultsTab.className = "px-4 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 text-slate-600 hover:text-slate-900";
+            } else {
+                voteViewPage.classList.add('hidden');
+                resultsViewPage.classList.remove('hidden');
+                bottomBar.classList.add('hidden');
+
+                navResultsTab.className = "px-4 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 bg-white text-indigo-600 shadow-sm";
+                navVoteTab.className = "px-4 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center gap-2 text-slate-600 hover:text-slate-900";
+
+                renderDashboard();
+            }
+        }
+
+        navVoteTab.addEventListener('click', () => switchView('vote'));
+        navResultsTab.addEventListener('click', () => switchView('results'));
+        viewResultsBtn.addEventListener('click', () => switchView('results'));
+
+        function renderGrid() {
+            totalItemsCountEl.textContent = items.length;
+
+            if (items.length === 0) {
+                imageGrid.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                emptyState.classList.add('flex');
+            } else {
+                imageGrid.classList.remove('hidden');
+                emptyState.classList.add('hidden');
+                emptyState.classList.remove('flex');
+            }
+
+            imageGrid.innerHTML = items.map(item => {
+                const isSelected = selectedIds.has(item.id);
+                const isUserVoted = userVotedIds.has(item.id);
+
+                return `
+                    <div data-id="${item.id}" class="image-card group relative bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border ${isSelected ? 'border-sky-500 ring-4 ring-sky-500/20' : 'border-slate-100'} cursor-pointer transform hover:-translate-y-1">
+                        <div class="relative aspect-video sm:aspect-square overflow-hidden bg-slate-100">
+                            <img src="${item.url}" alt="${item.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" onerror="this.src='https://placehold.co/600x400/e2e8f0/64748b?text=圖片載入失敗'">
+                            
+                            <!-- Selection Badge -->
+                            <div class="absolute top-3 right-3 z-10 w-8 h-8 rounded-full border-2 border-white/80 shadow-md flex items-center justify-center transition-all ${isSelected ? 'bg-sky-500 text-white border-sky-500 scale-110' : 'bg-black/30 backdrop-blur-md text-transparent group-hover:border-white'}">
+                                <i class="fa-solid fa-check text-xs"></i>
+                            </div>
+
+                            ${isUserVoted ? `
+                            <div class="absolute top-3 left-3 z-10 px-2.5 py-1 bg-emerald-500/90 backdrop-blur-md text-white text-[10px] font-bold rounded-full shadow border border-white/20 flex items-center gap-1">
+                                <i class="fa-solid fa-user-check"></i> 已投此項
+                            </div>` : ''}
+
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-50 group-hover:opacity-30 transition-opacity"></div>
+                            
+                            <div class="absolute bottom-3 left-3 bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-full text-[11px] font-medium text-white/90 flex items-center gap-1 border border-white/10">
+                                <i class="fa-solid fa-thumbs-up text-sky-400"></i>
+                                <span>${item.votes} 票</span>
+                            </div>
+                        </div>
+
+                        <div class="p-3.5 flex justify-between items-center gap-2">
+                            <input type="text" value="${item.title}" onchange="updateTitle('${item.id}', this.value)" onclick="event.stopPropagation()" class="font-semibold text-slate-800 text-xs sm:text-sm truncate bg-transparent hover:bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-sky-500 rounded px-1.5 py-0.5 w-full transition" title="點擊修改名稱">
+                            <button onclick="deleteItem(event, '${item.id}')" class="text-slate-300 hover:text-rose-500 p-1.5 transition flex-shrink-0">
+                                <i class="fa-regular fa-trash-can text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.querySelectorAll('.image-card').forEach(card => {
+                card.addEventListener('click', () => toggleSelection(card.getAttribute('data-id')));
+            });
+        }
+
+        function updateTitle(id, newTitle) {
+            const item = items.find(i => i.id === id);
+            if (item && newTitle.trim()) {
+                item.title = newTitle.trim();
+                showToast('標題已更新');
+            }
+        }
+
+        function toggleSelection(id) {
+            if (selectedIds.has(id)) {
+                selectedIds.delete(id);
+            } else {
+                if (maxSelectLimit > 0 && selectedIds.size >= maxSelectLimit) {
+                    showToast(`最多只能選擇 ${maxSelectLimit} 項！`, 'error');
+                    return;
+                }
+                selectedIds.add(id);
+            }
+            updateSelectionUI();
+            renderGrid();
+        }
+
+        function updateSelectionUI() {
+            const count = selectedIds.size;
+            selectedCountEl.textContent = count;
+
+            let isValid = true;
+            let hintMsg = "可直接送出投票";
+
+            if (minSelectLimit > 0 && count < minSelectLimit) {
+                isValid = false;
+                hintMsg = `最少需選取 ${minSelectLimit} 項`;
+            } else if (maxSelectLimit > 0 && count > maxSelectLimit) {
+                isValid = false;
+                hintMsg = `最多只能選取 ${maxSelectLimit} 項`;
+            }
+
+            selectionHint.textContent = hintMsg;
+
+            if (count > 0 && isValid) {
+                submitVoteBtn.disabled = false;
+                submitVoteBtn.className = "px-5 py-2.5 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white font-semibold text-xs sm:text-sm rounded-xl transition duration-200 flex items-center gap-2 shadow-lg shadow-sky-500/20 active:scale-95 cursor-pointer";
+            } else {
+                submitVoteBtn.disabled = true;
+                submitVoteBtn.className = "px-5 py-2.5 bg-slate-200 text-slate-400 cursor-not-allowed font-semibold text-xs sm:text-sm rounded-xl transition duration-200 flex items-center gap-2";
+            }
+        }
+
+        function deleteItem(e, id) {
+            e.stopPropagation();
+            items = items.filter(item => item.id !== id);
+            selectedIds.delete(id);
+            userVotedIds.delete(id);
+            localStorage.setItem('my_user_voted_ids', JSON.stringify([...userVotedIds]));
+            updateSelectionUI();
+            renderGrid();
+            showToast('已刪除選項', 'info');
+        }
+
+        // Submit Vote Process (NOT redirecting automatically)
+        submitVoteBtn.addEventListener('click', () => {
+            if (selectedIds.size === 0) return;
+
+            items = items.map(item => {
+                if (selectedIds.has(item.id)) {
+                    userVotedIds.add(item.id);
+                    return { ...item, votes: item.votes + 1 };
+                }
+                return item;
+            });
+
+            totalVotersCount += 1;
+            localStorage.setItem('my_total_voters', totalVotersCount.toString());
+            localStorage.setItem('my_user_voted_ids', JSON.stringify([...userVotedIds]));
+
+            const count = selectedIds.size;
+            selectedIds.clear();
+            updateSelectionUI();
+            renderGrid();
+
+            // Display Toast with button to jump to results on demand
+            showToast(`🎉 投票成功！已為 ${count} 個選項增加票數`, 'success', true);
+        });
+
+        clearSelectionBtn.addEventListener('click', () => {
+            selectedIds.clear();
+            updateSelectionUI();
+            renderGrid();
+        });
+
+        function renderDashboard() {
+            const totalVotes = items.reduce((acc, curr) => acc + curr.votes, 0);
+            const maxVotes = items.length > 0 ? Math.max(...items.map(i => i.votes), 0) : 0;
+
+            // Winner Showcase
+            if (items.length > 0 && maxVotes > 0) {
+                const winner = items.find(i => i.votes === maxVotes);
+                if (winner) {
+                    winnerSection.classList.remove('hidden');
+                    winnerImage.src = winner.url;
+                    winnerTitle.textContent = winner.title;
+                    winnerVotes.textContent = winner.votes;
+                    const pct = totalVotes > 0 ? ((winner.votes / totalVotes) * 100).toFixed(1) : 0;
+                    winnerPercentage.textContent = `${pct}%`;
+                }
+            } else {
+                winnerSection.classList.add('hidden');
+            }
+
+            // Slice Top 5 Items
+            const sortedItems = [...items].sort((a, b) => b.votes - a.votes).slice(0, 5);
+
+            if (sortedItems.length === 0) {
+                dashboardResultsList.innerHTML = `<div class="text-center py-12 text-slate-400 text-sm">目前尚無投票選項與數據</div>`;
+                return;
+            }
+
+            const rankBadges = [
+                { bg: 'bg-amber-500 text-white', icon: 'fa-solid fa-trophy', label: '冠軍' },
+                { bg: 'bg-slate-400 text-white', icon: 'fa-solid fa-medal', label: '亞軍' },
+                { bg: 'bg-amber-700 text-white', icon: 'fa-solid fa-award', label: '季軍' },
+                { bg: 'bg-slate-200 text-slate-700', icon: 'fa-solid fa-hashtag', label: '第 4 名' },
+                { bg: 'bg-slate-200 text-slate-700', icon: 'fa-solid fa-hashtag', label: '第 5 名' }
+            ];
+
+            dashboardResultsList.innerHTML = sortedItems.map((item, idx) => {
+                const percentage = totalVotes > 0 ? ((item.votes / totalVotes) * 100).toFixed(1) : 0;
+                const isUserVoted = userVotedIds.has(item.id);
+                const badge = rankBadges[idx] || { bg: 'bg-slate-100 text-slate-600', icon: 'fa-solid fa-hashtag', label: `第 ${idx + 1} 名` };
+
+                return `
+                    <div class="p-4 bg-slate-50/90 rounded-2xl border border-slate-200/70 flex flex-col sm:flex-row items-start sm:items-center gap-4 hover:bg-white hover:shadow-md transition duration-200">
+                        <div class="relative w-full sm:w-20 h-28 sm:h-20 rounded-xl overflow-hidden flex-shrink-0 bg-slate-200">
+                            <img src="${item.url}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/400x300/e2e8f0/64748b?text=圖片載入失敗'">
+                            <span class="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-bold ${badge.bg} shadow flex items-center gap-1">
+                                <i class="${badge.icon} text-[9px]"></i> ${badge.label}
+                            </span>
+                        </div>
+                        <div class="flex-grow w-full min-w-0">
+                            <div class="flex justify-between items-center mb-2 gap-2 flex-wrap">
+                                <div class="flex items-center gap-2 truncate">
+                                    <h4 class="font-bold text-sm sm:text-base text-slate-800 truncate">${item.title}</h4>
+                                    ${isUserVoted ? `<span class="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 flex-shrink-0"><i class="fa-solid fa-user-check text-[9px]"></i> 您投了此項</span>` : ''}
+                                </div>
+                                <span class="text-xs sm:text-sm font-extrabold text-slate-800">${item.votes} 票 (${percentage}%)</span>
+                            </div>
+                            <div class="w-full bg-slate-200/80 rounded-full h-3 overflow-hidden">
+                                <div class="bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-600 h-3 rounded-full transition-all duration-500" style="width: ${percentage}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        document.getElementById('resetVotesDashboardBtn').addEventListener('click', () => {
+            if (confirm('確定要清空歸零目前的投票票數與紀錄嗎？')) {
+                items = items.map(i => ({ ...i, votes: 0 }));
+                userVotedIds.clear();
+                totalVotersCount = 0;
+                localStorage.removeItem('my_user_voted_ids');
+                localStorage.removeItem('my_total_voters');
+                renderGrid();
+                renderDashboard();
+                showToast('已完成重置', 'info');
+            }
+        });
+
+        // Batch Modal Drag & Upload Functionality
+        openAddModalBtn.addEventListener('click', () => addModal.classList.remove('hidden'));
+        closeAddModalBtn.addEventListener('click', () => addModal.classList.add('hidden'));
+        cancelAddBtn.addEventListener('click', () => addModal.classList.add('hidden'));
+
+        // Batch Modal Tabs Switching
+        const tabBatchFile = document.getElementById('tabBatchFile');
+        const tabBatchUrl = document.getElementById('tabBatchUrl');
+        const panelBatchFile = document.getElementById('panelBatchFile');
+        const panelBatchUrl = document.getElementById('panelBatchUrl');
+
+        tabBatchFile.addEventListener('click', () => {
+            currentBatchTab = 'file';
+            tabBatchFile.className = "pb-2.5 px-4 text-xs sm:text-sm font-bold border-b-2 border-sky-500 text-sky-600 transition";
+            tabBatchUrl.className = "pb-2.5 px-4 text-xs sm:text-sm font-medium text-slate-500 hover:text-slate-700 transition";
+            panelBatchFile.classList.remove('hidden');
+            panelBatchUrl.classList.add('hidden');
+        });
+
+        tabBatchUrl.addEventListener('click', () => {
+            currentBatchTab = 'url';
+            tabBatchUrl.className = "pb-2.5 px-4 text-xs sm:text-sm font-bold border-b-2 border-sky-500 text-sky-600 transition";
+            tabBatchFile.className = "pb-2.5 px-4 text-xs sm:text-sm font-medium text-slate-500 hover:text-slate-700 transition";
+            panelBatchUrl.classList.remove('hidden');
+            panelBatchFile.classList.add('hidden');
+        });
+
+        const dropZone = document.getElementById('dropZone');
+        const inputFileMultiple = document.getElementById('inputFileMultiple');
+
+        dropZone.addEventListener('click', () => inputFileMultiple.click());
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-sky-500'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-sky-500'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-sky-500');
+            if (e.dataTransfer.files) handleFiles(e.dataTransfer.files);
+        });
+
+        inputFileMultiple.addEventListener('change', (e) => handleFiles(e.target.files));
+
+        function handleFiles(fileList) {
+            const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+            let count = 0;
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    stagedFiles.push({ title: file.name.split('.')[0], url: e.target.result });
+                    count++;
+                    if (count === files.length) updateStagedGrid();
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function updateStagedGrid() {
+            const area = document.getElementById('batchPreviewArea');
+            const grid = document.getElementById('stagedGrid');
+            document.getElementById('stagedCount').textContent = stagedFiles.length;
+
+            if (stagedFiles.length > 0) area.classList.remove('hidden');
+            else { area.classList.add('hidden'); return; }
+
+            grid.innerHTML = stagedFiles.map((f, i) => `
+                <div class="relative bg-white p-1.5 rounded-lg border border-slate-200 flex items-center gap-2">
+                    <img src="${f.url}" class="w-8 h-8 object-cover rounded flex-shrink-0">
+                    <span class="text-[11px] text-slate-700 truncate flex-grow">${f.title}</span>
+                    <button onclick="stagedFiles.splice(${i},1);updateStagedGrid();" class="text-slate-400 hover:text-rose-500 p-1">
+                        <i class="fa-solid fa-xmark text-xs"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        document.getElementById('clearStagedBtn').addEventListener('click', () => { stagedFiles = []; updateStagedGrid(); });
+
+        confirmBatchAddBtn.addEventListener('click', () => {
+            let added = 0;
+            if (currentBatchTab === 'file') {
+                stagedFiles.forEach((f, i) => {
+                    items.push({ id: (Date.now() + i).toString(), title: f.title, url: f.url, votes: 0 });
+                    added++;
+                });
+            } else {
+                const urls = document.getElementById('inputUrls').value.trim().split(/[\n,]+/).map(u => u.trim()).filter(u => u);
+                urls.forEach((url, i) => {
+                    items.push({ id: (Date.now() + i).toString(), title: `選項 ${items.length + 1}`, url: url, votes: 0 });
+                    added++;
+                });
+            }
+
+            if (added > 0) {
+                renderGrid();
+                addModal.classList.add('hidden');
+                stagedFiles = [];
+                document.getElementById('inputUrls').value = '';
+                updateStagedGrid();
+                showToast(`成功新增 ${added} 個選項！`);
+            } else {
+                showToast('請先選擇或貼上圖片', 'error');
+            }
+        });
+
+        // Config Modal
+        openConfigModalBtn.addEventListener('click', () => configModal.classList.remove('hidden'));
+        closeConfigModalBtn.addEventListener('click', () => configModal.classList.add('hidden'));
+        saveConfigBtn.addEventListener('click', () => {
+            minSelectLimit = parseInt(document.getElementById('minSelectInput').value) || 0;
+            maxSelectLimit = parseInt(document.getElementById('maxSelectInput').value) || 0;
+            ruleNoticeText.textContent = minSelectLimit === 0 && maxSelectLimit === 0 ? "無限制選取數量" : `最少 ${minSelectLimit} 項，最多 ${maxSelectLimit} 項`;
+            configModal.classList.add('hidden');
+            updateSelectionUI();
+            showToast('已更新規則設定');
+        });
+
+        // Clear and Restore
+        document.getElementById('clearAllItemsBtn').addEventListener('click', () => {
+            if (confirm('確定清空全部選項？')) {
+                items = [];
+                selectedIds.clear();
+                userVotedIds.clear();
+                renderGrid();
+                showToast('已清空所有選項', 'info');
+            }
+        });
+
+        document.getElementById('restoreDefaultBtn').addEventListener('click', () => {
+            items = [...defaultItems];
+            renderGrid();
+            showToast('已載入預設圖片');
+        });
+
+        // Init App
+        window.addEventListener('DOMContentLoaded', () => {
+            renderGrid();
+            updateSelectionUI();
+        });
+    </script>
+</body>
+</html>
